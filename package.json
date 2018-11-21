@@ -1,0 +1,11 @@
+{
+  "name": "BoatTracker-web",
+  "version": "1.0.0",
+  "main": "app.js",
+  "author": "Pete Butler <pete.butler@ge.com>",
+  "license": "MIT",
+  "dependencies": {
+    "azure-storage": "^2.10.2",
+    "express": "^4.16.4"
+  }
+}
