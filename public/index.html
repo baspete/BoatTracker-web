@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>BoatTracker</title>
+
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="IE=Edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+
+    <!--
+      Add references to the Azure Maps Map control JavaScript and CSS files.
+    -->
+    <link
+      rel="stylesheet"
+      href="https://atlas.microsoft.com/sdk/css/atlas.min.css?api-version=1"
+      type="text/css"
+    />
+    <script src="https://atlas.microsoft.com/sdk/js/atlas.min.js?api-version=1"></script>
+
+    <script type="text/javascript">
+      var map, marker;
+
+      function GetMap() {
+        //Add your Azure Maps subscription key to the map SDK. Get an Azure Maps key at https://azure.com/maps
+        atlas.setSubscriptionKey('hgsPWjpMhU6szBokaURbXCI1dGUi-KUygznXM07UP1Q');
+
+        fetch('/api/fixes')
+          .then(resp => resp.json()) // Transform the data into json
+          .then(data => {
+            let items = data.items;
+            let lastItem = items[items.length - 1];
+            let lastItemPosition = [lastItem.lon, lastItem.lat];
+
+            //Initialize a map instance.
+            map = new atlas.Map('myMap', {
+              center: lastItemPosition,
+              zoom: 14
+            });
+
+            //Wait until the map resources have fully loaded.
+            map.events.add('load', e => {
+              // https://stackoverflow.com/questions/32682962/javascript-angular-loop-through-array-backwards-with-foreach
+              items
+                .slice()
+                .reverse()
+                .forEach(item => {
+                  let color = item === items[0] ? 'DodgerBlue' : 'gray';
+                  if (item.velocity > 0 || item === items[0]) {
+                    // Always display heading with 3 digits (ie: 005)
+                    let headingStr = item.heading.true.toString();
+                    for (let i = headingStr.length; i < 3; i++) {
+                      headingStr = '0' + headingStr;
+                    }
+                    map.markers.add(
+                      new atlas.HtmlMarker({
+                        color: color,
+                        text: item.heading.true.toString(),
+                        position: [item.lon, item.lat]
+                      })
+                    );
+                  }
+                });
+            });
+          })
+          .catch(error => {
+            console.log('Fix API error:', error);
+          });
+      }
+    </script>
+  </head>
+  <body onload="GetMap()">
+    <div
+      id="myMap"
+      style="position:relative;width:100%;min-width:350px;height:600px;"
+    ></div>
+  </body>
+</html>

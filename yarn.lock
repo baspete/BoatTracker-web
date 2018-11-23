@@ -253,6 +253,10 @@ fresh@0.5.2:
   version "0.5.2"
   resolved "https://registry.yarnpkg.com/fresh/-/fresh-0.5.2.tgz#3d8cadd90d976569fa835ab1f8e4b23a105605a7"
 
+geomagnetism@^0.0.2:
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/geomagnetism/-/geomagnetism-0.0.2.tgz#fe57b7af474507e67ffc9f925451ee85d6f3ade7"
+
 getpass@^0.1.1:
   version "0.1.7"
   resolved "https://registry.yarnpkg.com/getpass/-/getpass-0.1.7.tgz#5eff8e3e684d569ae4cb2b1282604e8ba62149fa"

@@ -2,9 +2,16 @@
 
 const express = require('express'),
   storage = require('azure-storage'),
+  geomagnetism = require('geomagnetism'),
   app = express();
 
-const headingCorrection = -90;
+// Corrections for how the sensor is aligned
+// along the axis of the boat.
+const corrections = {
+  heading: -90,
+  pitch: 0,
+  roll: -1
+};
 
 const query = {
   fix: [
@@ -17,14 +24,25 @@ const query = {
     'y',
     'z',
     'temp',
-    'voltage'
+    'voltage',
+    'windspeed',
+    'winddir',
+    'depth'
   ]
 };
 
 /**
+ * Rounds a number
+ * @param {float} value     A number to round
+ * @param {int}   precision The number of decimal places to round
+ */
+function round(value, precision) {
+  var multiplier = Math.pow(10, precision || 0);
+  return Math.round(value * multiplier) / multiplier;
+}
+
+/**
  * Runs a table query with specific page size and continuationToken
- * @ignore
- *
  * @param {TableQuery}             query             Query to execute
  * @param {array}                  results           An array of items to be appended
  * @param {TableContinuationToken} continuationToken Continuation token to continue a query
@@ -46,29 +64,43 @@ function getTelemetry(query, results, continuationToken, callback) {
         for (let field in entry) {
           if (
             entry[field]._ &&
-            field !== 'PartitionKey' &&
-            field !== 'RowKey'
+            field !== 'PartitionKey' && // ignore
+            field !== 'RowKey' // ignore
           ) {
             switch (field) {
               case 'Timestamp':
-                fix[field] = entry[field]._; //String
+                fix[field] = entry[field]._; // string
                 break;
-              case 'x':
-                let heading = Math.round(
-                  parseFloat(entry[field]._) + headingCorrection
+              case 'x': // Heading
+                let decl = geomagnetism
+                  .model()
+                  .point([parseFloat(entry.lat._), parseFloat(entry.lon._)])
+                  .decl;
+                let m = Math.round(
+                  parseFloat(entry[field]._) + corrections.heading
                 );
-                if (heading < 0) {
-                  heading = 360 + heading;
-                }
-                fix['heading'] = heading;
+                // Calculate true
+                let t = Math.round(m + decl);
+                fix['heading'] = {
+                  mag: m < 0 ? 360 + m : m,
+                  true: t < 0 ? 360 + t : t
+                };
                 break;
-              case 'y':
-                fix['pitch'] = Math.round(parseFloat(entry[field]._));
+              case 'y': // Pitch
+                fix['pitch'] = Math.round(
+                  parseFloat(entry[field]._) + corrections.pitch
+                );
                 break;
-              case 'z':
-                fix['roll'] = Math.round(parseFloat(entry[field]._));
+              case 'z': // Roll
+                fix['roll'] = Math.round(
+                  parseFloat(entry[field]._) + corrections.roll
+                );
+                break;
+              case 'velocity': // Knots
+                fix['velocity'] = round(parseFloat(entry[field]._), 1);
                 break;
               default:
+                // Otherwise just return the float
                 fix[field] = parseFloat(entry[field]._);
             }
           }
@@ -124,7 +156,7 @@ app.use('/api/fixes', (req, res) => {
       .where('RowKey <= ?', req.query.before);
   } else {
     const now = Date.now(),
-      span = 1000 * 60 * 60 * 24, // 24 hours
+      span = 1000 * 60 * 60, // 1 hour
       since = new Date(now - span).toISOString();
     query = new storage.TableQuery()
       .select(query.fix)
