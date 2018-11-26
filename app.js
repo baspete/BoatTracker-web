@@ -156,7 +156,7 @@ app.use('/api/fixes', (req, res) => {
       .where('RowKey <= ?', req.query.before);
   } else {
     const now = Date.now(),
-      span = 1000 * 60 * 60, // 1 hour
+      span = 1000 * 60 * 60 * 24, // 24 hours
       since = new Date(now - span).toISOString();
     query = new storage.TableQuery()
       .select(query.fix)

@@ -18,10 +18,45 @@
       href="https://atlas.microsoft.com/sdk/css/atlas.min.css?api-version=1"
       type="text/css"
     />
+    <style type="text/css">
+      .popup {
+        max-width: 200px;
+        padding: 10px;
+        font-size: 12px;
+      }
+      .popup .timestamp {
+        font-weight: bold;
+      }
+    </style>
     <script src="https://atlas.microsoft.com/sdk/js/atlas.min.js?api-version=1"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js"></script>
 
     <script type="text/javascript">
-      var map, marker;
+      let map, marker;
+      function symbolFocused(e) {
+        //Make sure that the point exists.
+        if (e.shapes && e.shapes.length > 0) {
+          let coordinate;
+          let properties = e.shapes[0].getProperties();
+          let timestamp = moment(properties.Timestamp).format('lll');
+          let template = `<div class="popup"><div class="timestamp">${timestamp}</div>position: ${
+            properties.lat
+          }, ${properties.lon}<br/>heading: ${
+            properties.heading.str
+          } true</br/>speed: ${properties.velocity} kts</div>`;
+
+          coordinate = e.shapes[0].getCoordinates();
+          popup.setOptions({
+            content: template,
+            position: coordinate
+          });
+          popup.open(map);
+        }
+      }
+
+      function symbolUnfocused(e) {
+        popup.close(map);
+      }
 
       function GetMap() {
         //Add your Azure Maps subscription key to the map SDK. Get an Azure Maps key at https://azure.com/maps
@@ -33,10 +68,12 @@
             let items = data.items;
             let lastItem = items[items.length - 1];
             let lastItemPosition = [lastItem.lon, lastItem.lat];
+            let points = [];
 
             //Initialize a map instance.
             map = new atlas.Map('myMap', {
               center: lastItemPosition,
+              style: 'satellite',
               zoom: 14
             });
 
@@ -47,22 +84,59 @@
                 .slice()
                 .reverse()
                 .forEach(item => {
-                  let color = item === items[0] ? 'DodgerBlue' : 'gray';
-                  if (item.velocity > 0 || item === items[0]) {
+                  if (
+                    item.velocity > 0.25 || // are we moving?
+                    item === items[items.length - 1] // always render the currrent position
+                  ) {
                     // Always display heading with 3 digits (ie: 005)
                     let headingStr = item.heading.true.toString();
                     for (let i = headingStr.length; i < 3; i++) {
                       headingStr = '0' + headingStr;
                     }
-                    map.markers.add(
-                      new atlas.HtmlMarker({
-                        color: color,
-                        text: item.heading.true.toString(),
-                        position: [item.lon, item.lat]
-                      })
+                    item.heading.str = headingStr;
+                    item.iconRotation = item.heading.true;
+
+                    //Create a position object from the lon and lat values.
+                    let position = new atlas.data.Position(item.lon, item.lat);
+                    //Create a Point feature and pass in the item object as the properties so that we can access them later if needed.
+                    let point = new atlas.data.Feature(
+                      new atlas.data.Point(position),
+                      item
                     );
+                    points.push(point);
                   }
                 });
+
+              map.imageSprite.add('current', './gpsArrowIcon.png').then(() => {
+                //Create a data source and add it to the map.
+                let datasource = new atlas.source.DataSource();
+                map.sources.add(datasource);
+                //Add point data to the data source.
+                datasource.add(points);
+                //Create a layer that defines how to render the points on the map.
+                let symbolLayer = new atlas.layer.SymbolLayer(
+                  datasource,
+                  null,
+                  {
+                    iconOptions: {
+                      image: 'current',
+                      anchor: 'center',
+                      rotation: ['get', 'iconRotation']
+                    }
+                  }
+                );
+                map.layers.add(symbolLayer);
+
+                //Create a popup but leave it closed so we can update it and display it later.
+                popup = new atlas.Popup({
+                  position: [0, 0],
+                  closeButton: false,
+                  pixelOffset: [0, -18]
+                });
+                //Add hover events to the symbol layer.
+                map.events.add('mouseover', symbolLayer, symbolFocused);
+                map.events.add('mouseout', symbolLayer, symbolUnfocused);
+              });
             });
           })
           .catch(error => {
