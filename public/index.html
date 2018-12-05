@@ -39,12 +39,13 @@
           let coordinate;
           let properties = e.shapes[0].getProperties();
           let timestamp = moment(properties.Timestamp).format('lll');
-          let template = `<div class="popup"><div class="timestamp">${timestamp}</div>position: ${
-            properties.lat
-          }, ${properties.lon}<br/>heading: ${
-            properties.heading.str
-          } true</br/>speed: ${properties.velocity} kts</div>`;
-
+          let template = `<div class="popup"><div class="timestamp">${timestamp}</div>
+                  position: ${properties.lat}, ${properties.lon}<br/>
+                  heading: ${properties.heading.str} true</br/>
+                  speed: ${properties.velocity} kts<br/>
+                  roll: ${properties.roll} deg<br/>
+                  pitch: ${properties.pitch} deg
+                </div>`;
           coordinate = e.shapes[0].getCoordinates();
           popup.setOptions({
             content: template,
